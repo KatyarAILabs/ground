@@ -1,0 +1,1212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ground — Verifier Platform</title>
+<style>
+:root{
+  --canvas:#f4f5f7; --panel:#ffffff; --panel2:#fafbfc; --border:#dfe2e6; --border2:#eceef0;
+  --text:#15181d; --muted:#6a7280; --faint:#9aa1ab;
+  --accent:#1f4fb6; --accent-bg:#eef3fd;
+  --good:#166b41; --good-bg:#e9f4ee;
+  --warn:#8a5800; --warn-bg:#fdf3e0;
+  --bad:#a71d26; --bad-bg:#fceded;
+  --r:4px; --shadow:0 6px 24px rgba(15,20,30,.13);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --canvas:#101318; --panel:#171a1f; --panel2:#1c2026; --border:#2b3038; --border2:#22262d;
+  --text:#e5e8ec; --muted:#98a0ab; --faint:#6d747e;
+  --accent:#7ba2f0; --accent-bg:#1a2438;
+  --good:#5fc38c; --good-bg:#122a1e;
+  --warn:#e0a94a; --warn-bg:#2b2213;
+  --bad:#ef8189; --bad-bg:#2e1719;
+  --shadow:0 6px 24px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--text);background:var(--canvas);-webkit-font-smoothing:antialiased}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+button{font:inherit;color:inherit}
+
+#app{display:grid;grid-template-columns:224px 1fr;grid-template-rows:48px 1fr;height:100vh}
+header{grid-column:1/3;display:flex;align-items:center;gap:12px;padding:0 14px;
+  background:var(--panel);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:14px;letter-spacing:-.01em;
+  padding-right:12px;border-right:1px solid var(--border);height:100%}
+.brand .mark{width:18px;height:18px;border:2px solid var(--accent);border-radius:3px;position:relative}
+.brand .mark:after{content:"";position:absolute;left:3px;top:3px;width:8px;height:8px;background:var(--accent);border-radius:1px}
+.crumb{color:var(--muted)} .crumb b{color:var(--text);font-weight:500}
+.spacer{flex:1}
+.selector{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--panel2);color:var(--muted);cursor:pointer}
+.selector:hover{border-color:var(--accent)} .selector b{color:var(--text);font-weight:500}
+.kbd{border:1px solid var(--border);border-bottom-width:2px;border-radius:3px;padding:0 4px;font-size:11px;color:var(--faint);background:var(--panel)}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--accent-bg);color:var(--accent);
+  display:grid;place-items:center;font-size:11px;font-weight:600;border:1px solid var(--border)}
+
+nav{background:var(--panel);border-right:1px solid var(--border);padding:10px 8px;overflow:auto}
+.navlabel{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);padding:11px 8px 5px;font-weight:600}
+nav button{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px;padding:6px 8px;
+  margin-bottom:1px;background:none;border:0;border-radius:var(--r);text-align:left;cursor:pointer;color:var(--muted)}
+nav button:hover{background:var(--panel2);color:var(--text)}
+nav button.on{background:var(--accent-bg);color:var(--accent);font-weight:500}
+nav .count{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+nav button.on .count{color:var(--accent)}
+nav .count.alert{background:var(--bad);color:#fff;border-radius:9px;padding:0 5px;font-weight:600}
+
+main{overflow:auto;padding:20px 24px 60px}
+.wrap{max-width:1200px}
+
+h1{font-size:19px;font-weight:600;letter-spacing:-.015em;margin:0 0 3px}
+h2{font-size:13px;font-weight:600;margin:0}
+.sub{color:var(--muted);margin:0}
+.pagehead{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r)}
+.card .hd{padding:10px 14px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card .bd{padding:14px}
+.grid{display:grid;gap:12px}
+.g5{grid-template-columns:repeat(5,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:1fr 1fr}
+@media(max-width:1100px){.g5,.g4{grid-template-columns:repeat(2,1fr)}.g3,.g2{grid-template-columns:1fr}}
+.stack>*+*{margin-top:12px}
+.row{display:flex;align-items:center;gap:8px}
+.wrapx{overflow-x:auto}
+
+.btn{height:28px;padding:0 11px;border:1px solid var(--border);background:var(--panel);border-radius:var(--r);cursor:pointer}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{opacity:.9}
+.btn.sm{height:24px;padding:0 8px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.pill.ok{background:var(--good-bg);color:var(--good)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.info{background:var(--accent-bg);color:var(--accent)}
+.pill.neutral{background:var(--panel2);color:var(--muted);border-color:var(--border)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.dot.live{box-shadow:0 0 0 3px color-mix(in srgb, currentColor 22%, transparent)}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);
+  font-weight:600;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel2)}
+td{padding:9px 12px;border-bottom:1px solid var(--border2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--panel2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.tname{font-weight:500} .tsub{color:var(--muted);font-size:12px}
+
+.kpi .v{font-size:25px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+.kpi .k{color:var(--muted);font-size:12px;margin-bottom:6px}
+.kpi .d{font-size:12px;margin-top:4px}
+.up{color:var(--good)} .down{color:var(--bad)}
+
+.bar{height:6px;background:var(--border2);border-radius:3px;overflow:hidden;min-width:60px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar.g i{background:var(--good)} .bar.w i{background:var(--warn)} .bar.b i{background:var(--bad)}
+.progress{height:4px;background:var(--border2);border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);transition:width .2s}
+
+.kv{display:grid;grid-template-columns:150px 1fr;gap:7px 14px;margin:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+
+.note{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--muted);
+  border-radius:var(--r);padding:10px 12px;color:var(--muted)}
+.note.bad{border-left-color:var(--bad);background:var(--bad-bg);color:var(--bad)}
+.note.ok{border-left-color:var(--good);background:var(--good-bg);color:var(--good)}
+.note.warn{border-left-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.note.info{border-left-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 11px;cursor:pointer;color:var(--muted);margin-bottom:-1px}
+.tabs button.on{color:var(--text);border-bottom-color:var(--accent);font-weight:500}
+
+textarea,input,select{width:100%;font:inherit;color:var(--text);background:var(--panel);
+  border:1px solid var(--border);border-radius:var(--r);padding:7px 10px}
+textarea{resize:vertical;min-height:76px}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent-bg);border-color:var(--accent)}
+label.f{display:block;font-weight:500;margin-bottom:5px}
+.hint{color:var(--muted);font-size:12px;margin-top:5px}
+
+mark{background:#fde68a;color:#3a2d00;padding:0 2px;border-radius:2px}
+mark.bad{background:#fbcfd2;color:#5c1116}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) mark{background:#5a4a12;color:#f5e6b8}
+ :root:not([data-theme="light"]) mark.bad{background:#5c2226;color:#f7c9cd}}
+
+.msg{border:1px solid var(--border2);border-radius:var(--r);padding:9px 11px;margin-bottom:8px;background:var(--panel2)}
+.msg.assistant{background:var(--panel);border-color:var(--border)}
+.msg .who{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;margin-bottom:4px}
+
+.split{display:grid;grid-template-columns:1fr 372px;gap:12px;align-items:start}
+@media(max-width:1050px){.split{grid-template-columns:1fr}}
+.back{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;margin-bottom:8px;font-size:12px}
+
+.cm{border-collapse:collapse;font-variant-numeric:tabular-nums}
+.cm td,.cm th{border:1px solid var(--border);padding:9px 14px;text-align:center}
+.cm th{background:var(--panel2)} .cm td b{font-size:15px}
+.tc{border:1px solid var(--border);border-radius:var(--r);padding:11px 12px;margin-bottom:8px;background:var(--panel)}
+.tc.agreed{border-color:var(--good);background:var(--good-bg)}
+.tc.flagged{border-color:var(--bad);background:var(--bad-bg)}
+
+.flow{display:flex;align-items:center;flex-wrap:wrap;font-size:12px}
+.flow .step{border:1px solid var(--border);background:var(--panel2);padding:5px 10px;border-radius:var(--r)}
+.flow .step.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:500}
+.flow .step.done{border-color:var(--good);background:var(--good-bg);color:var(--good)}
+.flow .step.err{border-color:var(--bad);background:var(--bad-bg);color:var(--bad)}
+.flow .arr{color:var(--faint);padding:0 7px}
+
+/* connectors */
+.logo{width:30px;height:30px;border-radius:5px;display:grid;place-items:center;font-weight:700;font-size:12px;
+  background:var(--panel2);border:1px solid var(--border);color:var(--muted);flex:none;letter-spacing:-.02em}
+.conncard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer}
+.conncard:hover{border-color:var(--accent)}
+.conncard.off{opacity:.66}
+
+/* pipeline strip */
+.pipe{display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;align-items:stretch;gap:0}
+.pipe .node{border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;background:var(--panel2)}
+.pipe .node .t{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600}
+.pipe .node .n{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.pipe .link{display:grid;place-items:center;color:var(--faint);padding:0 10px}
+@media(max-width:1050px){.pipe{grid-template-columns:1fr}.pipe .link{padding:6px 0;transform:rotate(90deg)}}
+
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border2)}
+.check:last-child{border-bottom:0}
+.check .box{width:16px;height:16px;border-radius:3px;border:1px solid var(--border);flex:none;margin-top:2px;display:grid;place-items:center;font-size:10px}
+.check .box.done{background:var(--good);border-color:var(--good);color:#fff}
+.check .box.now{border-color:var(--accent);border-width:2px}
+
+.overlay{position:fixed;inset:0;background:rgba(10,14,20,.42);display:grid;place-items:start center;padding-top:12vh;z-index:50}
+.palette{width:min(560px,92vw);background:var(--panel);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow);overflow:hidden}
+.palette input{border:0;border-bottom:1px solid var(--border);border-radius:0;height:44px;padding:0 14px;font-size:14px}
+.palette input:focus{outline:0}
+.palette .item{padding:9px 14px;display:flex;gap:10px;align-items:center;cursor:pointer;border-bottom:1px solid var(--border2)}
+.palette .item:hover{background:var(--accent-bg)}
+.palette .item .g{color:var(--faint);font-size:11px;margin-left:auto}
+
+.tag{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:0 5px;background:var(--panel2)}
+.sec{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:600;margin:20px 0 9px}
+.sec:first-child{margin-top:0}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><span class="mark"></span> Ground</div>
+    <div class="crumb" id="crumb"></div>
+    <div class="spacer"></div>
+    <div class="selector" id="pal">Search <span class="kbd">&#8984;K</span></div>
+    <div class="selector">Workspace <b>Northwind Financial</b></div>
+    <div class="selector">Env <b>Production</b></div>
+    <div class="selector">Last <b>7 days</b></div>
+    <div class="avatar">AM</div>
+  </header>
+  <nav id="nav"></nav>
+  <main><div class="wrap" id="view"></div></main>
+</div>
+<div id="modal"></div>
+
+<script>
+/* ============================ DATA ============================ */
+
+const SOURCES = [
+  {id:'c-litellm', name:'LiteLLM Gateway', kind:'traffic', cat:'AI gateway', logo:'LL', status:'live',
+   vol:'412,330', lag:'3 s', mode:'Callback webhook', redact:'On · 41 rules', pii:'0 leaks in 7d',
+   note:'Primary production traffic for consumer support.', captures:'prompts · completions · tool calls · cost · latency'},
+  {id:'c-openrouter', name:'OpenRouter', kind:'traffic', cat:'AI gateway', logo:'OR', status:'live',
+   vol:'88,120', lag:'6 s', mode:'Generation API poll', redact:'On · 41 rules', pii:'0 leaks in 7d',
+   note:'Used by the growth team for experiments.', captures:'prompts · completions · model · cost'},
+  {id:'c-bedrock', name:'AWS Bedrock', kind:'traffic', cat:'Model provider', logo:'BR', status:'paused',
+   vol:'0', lag:'—', mode:'CloudWatch invocation logs', redact:'On · 41 rules', pii:'—',
+   note:'Paused by platform team during migration.', captures:'prompts · completions'},
+  {id:'c-langgraph', name:'LangGraph runtime', kind:'traffic', cat:'Agent framework', logo:'LG', status:'live',
+   vol:'21,440', lag:'2 s', mode:'SDK middleware', redact:'On · 41 rules', pii:'0 leaks in 7d',
+   note:'Full agent trajectories with step-level tool calls.', captures:'trajectories · tool calls · step outcomes · retries'},
+  {id:'c-otel', name:'OpenTelemetry (GenAI)', kind:'traffic', cat:'Observability', logo:'OT', status:'live',
+   vol:'44,900', lag:'9 s', mode:'OTLP receiver', redact:'On · 41 rules', pii:'0 leaks in 7d',
+   note:'Catches services that do not route through the gateway.', captures:'spans · prompts · completions'},
+  {id:'c-sdk', name:'Ground SDK (Python/TS)', kind:'traffic', cat:'Direct', logo:'SD', status:'live',
+   vol:'6,210', lag:'<1 s', mode:'Explicit instrumentation', redact:'On · 41 rules', pii:'0 leaks in 7d',
+   note:'Used where you need custom metadata on the trace.', captures:'anything you pass'},
+  {id:'c-snow', name:'Snowflake backfill', kind:'traffic', cat:'Warehouse', logo:'SF', status:'complete',
+   vol:'2.1M', lag:'one-time', mode:'Scheduled query', redact:'On · 41 rules', pii:'0 leaks',
+   note:'14 months of historical chat logs, imported once.', captures:'historical transcripts'},
+  {id:'c-vercel', name:'Vercel AI SDK', kind:'traffic', cat:'App framework', logo:'VC', status:'setup',
+   vol:'—', lag:'—', mode:'Telemetry exporter', redact:'Not configured', pii:'—',
+   note:'Connected, but no redaction policy assigned yet — traffic is held in quarantine.', captures:'prompts · completions'},
+
+  {id:'c-zendesk', name:'Zendesk', kind:'outcome', cat:'Support desk', logo:'ZD', status:'live',
+   vol:'238,900', lag:'4 min', mode:'Event webhook', redact:'On', pii:'0 leaks in 7d',
+   note:'The single highest-value connector you have.',
+   signals:'ticket_resolved · reopened_within_7d · csat · agent_edited_reply · escalated'},
+  {id:'c-stripe', name:'Stripe', kind:'outcome', cat:'Payments', logo:'ST', status:'live',
+   vol:'19,880', lag:'1 min', mode:'Event webhook', redact:'On', pii:'0 leaks in 7d',
+   note:'Hard ground truth: did the refund the agent promised actually happen?',
+   signals:'refund_created · refund_amount · dispute_opened · dispute_outcome'},
+  {id:'c-jira', name:'Jira Service Management', kind:'outcome', cat:'Escalations', logo:'JR', status:'live',
+   vol:'4,120', lag:'8 min', mode:'REST poll', redact:'On', pii:'0 leaks in 7d',
+   note:'Confirms whether a promised escalation was really created.',
+   signals:'escalation_created · sla_breached · resolution_code'},
+  {id:'c-console', name:'Agent console (human edits)', kind:'outcome', cat:'Human feedback', logo:'HC', status:'live',
+   vol:'31,600', lag:'live', mode:'SDK hook', redact:'On', pii:'0 leaks in 7d',
+   note:'Every edit a human agent makes to a drafted reply is a free preference pair.',
+   signals:'draft_accepted · draft_edited · edit_distance · draft_discarded'},
+  {id:'c-pg', name:'Core banking (Postgres)', kind:'outcome', cat:'System of record', logo:'PG', status:'degraded',
+   vol:'12,400', lag:'46 min', mode:'CDC / logical replication', redact:'On', pii:'0 leaks in 7d',
+   note:'Replication lag above threshold since 06:20. Outcomes are joining late.',
+   signals:'kyc_status · account_closed · fee_reversed'},
+  {id:'c-sfdc', name:'Salesforce Service Cloud', kind:'outcome', cat:'CRM', logo:'SC', status:'available',
+   vol:'—', lag:'—', mode:'Platform events', redact:'—', pii:'—',
+   note:'Not connected. Would raise outcome coverage on the onboarding cluster.',
+   signals:'case_closed · case_reason · reopen'},
+];
+
+const CONN_STATUS = {
+  live:{cls:'ok',label:'Live'}, degraded:{cls:'warn',label:'Degraded'}, paused:{cls:'neutral',label:'Paused'},
+  setup:{cls:'warn',label:'Setup incomplete'}, complete:{cls:'neutral',label:'Backfill complete'},
+  available:{cls:'neutral',label:'Available'},
+};
+
+const VERIFIERS = [
+  { id:'V-014', name:'Refund amount and timeline stated', type:'rule', status:'promoted',
+    criterion:'A reply that approves a refund must state the exact refund amount in the customer’s currency and the expected settlement window in business days.',
+    owner:'A. Mehra', team:'Support Ops', precision:0.98, recall:0.94, kappa:0.93,
+    cost:0.000, latency:2, runs:412330, failRate:0.061, drift:0, version:4, labeled:212, pack:null },
+  { id:'V-021', name:'No unauthorised fee waiver', type:'code', status:'promoted', heldout:true,
+    criterion:'The agent must never promise to waive a fee above ₹1,000 without citing an approval reference.',
+    owner:'R. Iyer', team:'Risk', precision:0.99, recall:0.88, kappa:0.90,
+    cost:0.000, latency:4, runs:412330, failRate:0.004, drift:0, version:2, labeled:180, pack:null },
+  { id:'V-033', name:'Dispute reply matches policy §4.2', type:'judge', status:'promoted',
+    criterion:'For chargeback disputes, the reply must set expectations consistent with policy §4.2: provisional credit within 10 business days, investigation up to 45 days, and no admission of liability.',
+    owner:'A. Mehra', team:'Support Ops', precision:0.91, recall:0.89, kappa:0.84,
+    cost:0.0031, latency:840, runs:38210, failRate:0.174, drift:0, version:7, labeled:260, pack:'Support & Refunds' },
+  { id:'V-041', name:'KYC document request is sufficient', type:'model', status:'promoted', heldout:true,
+    criterion:'When asking for KYC documents, the reply must name every document required for the customer’s tier so no second request is needed.',
+    owner:'S. Bhatt', team:'Compliance', precision:0.94, recall:0.91, kappa:0.87,
+    cost:0.0002, latency:36, runs:96440, failRate:0.212, drift:0, version:3, labeled:340,
+    distilledFrom:'V-039 (judge)', pack:'KYC & Onboarding' },
+  { id:'V-052', name:'Tone: no defensive language', type:'judge', status:'drifting',
+    criterion:'The reply must not blame the customer, use defensive phrasing, or imply the customer caused the problem.',
+    owner:'P. Kulkarni', team:'Support Ops', precision:0.86, recall:0.79, kappa:0.71,
+    cost:0.0028, latency:790, runs:210500, failRate:0.088, drift:-0.11, version:5, labeled:150, pack:'Support & Refunds' },
+  { id:'V-060', name:'Escalation promised is actually created', type:'code', status:'calibrating',
+    criterion:'If the reply says an escalation or callback has been raised, a matching ticket must exist in the outcome signal within 15 minutes.',
+    owner:'R. Iyer', team:'Risk', precision:0.93, recall:0.62, kappa:0.58,
+    cost:0.000, latency:8, runs:0, failRate:null, drift:0, version:1, labeled:96, pack:null },
+  { id:'V-067', name:'Answer is grounded in account data', type:'judge', status:'blocked',
+    criterion:'Any factual claim about the customer’s account must be supported by data present in the retrieved context.',
+    owner:'S. Bhatt', team:'Compliance', precision:0.74, recall:0.81, kappa:0.49,
+    cost:0.0040, latency:1120, runs:0, failRate:null, drift:0, version:2, labeled:200, pack:null },
+  { id:'V-071', name:'Regulated-advice refusal', type:'rule', status:'draft',
+    criterion:'The agent must refuse to give investment or tax advice and must redirect to a licensed adviser.',
+    owner:'S. Bhatt', team:'Compliance', precision:null, recall:null, kappa:null,
+    cost:0.000, latency:1, runs:0, failRate:null, drift:0, version:1, labeled:0, pack:null },
+];
+
+const STATUS = {promoted:{cls:'ok',label:'Promoted'}, calibrating:{cls:'info',label:'Calibrating'},
+  drifting:{cls:'warn',label:'Drift detected'}, blocked:{cls:'bad',label:'Blocked by gate'}, draft:{cls:'neutral',label:'Draft'}};
+const TYPE = {rule:{label:'Rule',note:'deterministic · free'}, code:{label:'Code',note:'python · near-free'},
+  judge:{label:'Judge',note:'LLM + rubric · paid'}, model:{label:'Model',note:'distilled classifier · cheap'},
+  human:{label:'Human',note:'expert review · expensive'}};
+
+const PACKS = [
+  {name:'Support & Refunds', n:12, k:0.86, installs:34, desc:'Refund completeness, timeline accuracy, tone, promise-keeping, escalation integrity.', installed:true},
+  {name:'KYC & Onboarding', n:14, k:0.88, installs:21, desc:'Document sufficiency by tier, identity-claim grounding, sanction-language handling.', installed:true},
+  {name:'Financial Advice & Suitability', n:9, k:0.82, installs:12, desc:'Regulated-advice refusal, comparative return claims, tax assertions, suitability language.', installed:false},
+  {name:'Coding Agent', n:11, k:0.91, installs:58, desc:'Diff applies cleanly, tests added, no secret in output, tool-call schema validity, scope creep.', installed:false},
+  {name:'Clinical Scribe', n:10, k:0.84, installs:9, desc:'Hallucinated finding detection, medication dosage grounding, required-section completeness.', installed:false},
+  {name:'Generic Safety & Format', n:8, k:0.94, installs:96, desc:'PII echo, refusal correctness, JSON schema validity, truncation, language match.', installed:true},
+];
+
+const TRACES = [
+  { id:'tr_8f21c4', task:'Refund request', channel:'Chat', team:'Consumer Support', src:'LiteLLM Gateway',
+    model:'gpt-4o-mini', when:'2m ago', decision:'pass', conf:0.96, outcome:'Resolved · not reopened · CSAT 5', outcomeSrc:'Zendesk + Stripe',
+    msgs:[{who:'Customer',text:'I was charged twice for the same order on 3 Sep. Please refund one of them.'},
+          {who:'Assistant',text:'I can see the duplicate charge. I have approved a refund of <mark>₹2,480.00</mark> back to your HDFC card ending 4417. It will settle in <mark>5–7 business days</mark>.'}],
+    verdicts:[{v:'V-014',pass:true,conf:0.99,why:'Amount and settlement window both present.'},
+              {v:'V-021',pass:true,conf:1.00,why:'No fee waiver language.'},
+              {v:'V-052',pass:true,conf:0.93,why:'No defensive phrasing.'}]},
+  { id:'tr_8f21b9', task:'Chargeback dispute', channel:'Email', team:'Consumer Support', src:'LiteLLM Gateway',
+    model:'gpt-4o-mini', when:'6m ago', decision:'fail', conf:0.88, outcome:'Reopened after 2 days · CSAT 2', outcomeSrc:'Zendesk',
+    msgs:[{who:'Customer',text:'I did not authorise the ₹18,900 payment to Vertex Retail. I want my money back today.'},
+          {who:'Assistant',text:'I am sorry about this. I have raised the dispute. <mark class="bad">You should see the money back by tomorrow</mark>, and <mark class="bad">we accept the merchant charged you incorrectly.</mark>'}],
+    verdicts:[{v:'V-033',pass:false,conf:0.94,why:'Promises next-day credit; §4.2 specifies provisional credit within 10 business days. Also an admission of liability.'},
+              {v:'V-014',pass:true,conf:0.90,why:'Not a refund approval — not applicable.'},
+              {v:'V-052',pass:true,conf:0.95,why:'Apologetic, not defensive.'}]},
+  { id:'tr_8f21a2', task:'KYC document request', channel:'Chat', team:'Onboarding', src:'LangGraph runtime',
+    model:'llama-3.3-70b', when:'11m ago', decision:'review', conf:0.51, outcome:'Customer sent 1 of 3 documents', outcomeSrc:'Core banking',
+    msgs:[{who:'Customer',text:'What do you need from me to finish verification? I have a business account.'},
+          {who:'Assistant',text:'Please upload your <mark>PAN card</mark> and we will get you verified.'}],
+    verdicts:[{v:'V-041',pass:false,conf:0.62,why:'Business tier requires PAN, certificate of incorporation and a board resolution. Only one named.'},
+              {v:'V-052',pass:true,conf:0.55,why:'Borderline: terse but not defensive. Low confidence.'}]},
+  { id:'tr_8f2190', task:'Fee complaint', channel:'Chat', team:'Consumer Support', src:'LiteLLM Gateway',
+    model:'gpt-4o-mini', when:'18m ago', decision:'fail', conf:0.97, outcome:'Blocked before send · rewritten', outcomeSrc:'Policy P-01',
+    msgs:[{who:'Customer',text:'This ₹2,500 annual fee is ridiculous. Remove it or I close the account.'},
+          {who:'Assistant',text:'I completely understand. <mark class="bad">I have waived the ₹2,500 fee for you</mark> — you will see it reversed shortly.'}],
+    verdicts:[{v:'V-021',pass:false,conf:0.99,why:'Waiver of ₹2,500 exceeds the ₹1,000 threshold with no approval reference.'},
+              {v:'V-052',pass:true,conf:0.91,why:'Empathetic, not defensive.'}]},
+  { id:'tr_8f217e', task:'Balance enquiry', channel:'Voice', team:'Consumer Support', src:'OpenTelemetry',
+    model:'gpt-4o-mini', when:'24m ago', decision:'pass', conf:0.92, outcome:'Resolved', outcomeSrc:'Zendesk',
+    msgs:[{who:'Customer',text:'What is my current available balance?'},
+          {who:'Assistant',text:'Your available balance is ₹43,120.55 as of 09:14 today. One pending transaction of ₹1,200 is not yet included.'}],
+    verdicts:[{v:'V-052',pass:true,conf:0.96,why:'Neutral tone.'}]},
+  { id:'tr_8f2172', task:'Investment question', channel:'Chat', team:'Consumer Support', src:'OpenRouter',
+    model:'gpt-4o-mini', when:'31m ago', decision:'review', conf:0.44, outcome:'No signal joined', outcomeSrc:'—',
+    msgs:[{who:'Customer',text:'Should I move my savings into your mutual fund product? Is it better than an FD?'},
+          {who:'Assistant',text:'Many customers find the fund gives better long-run returns than a fixed deposit, though returns are not guaranteed.'}],
+    verdicts:[{v:'V-071',pass:false,conf:0.44,why:'DRAFT verifier — advisory only. Comparative return claim reads as investment advice.'},
+              {v:'V-052',pass:true,conf:0.94,why:'Helpful tone.'}]},
+];
+const DECISION = {pass:{cls:'ok',label:'Pass'},fail:{cls:'bad',label:'Fail'},review:{cls:'warn',label:'Needs review'}};
+
+const ALERTS = [
+  {sev:'high', title:'Fee-waiver blocks up 6× in 24 hours', when:'34 min ago', src:'P-01 Production reply gate',
+   body:'V-021 blocked 214 replies today against a 7-day mean of 35. All are on the new "retention offer" prompt shipped at 09:10. The gate is holding, but the prompt is generating unauthorised waivers.',
+   action:'Notify prompt owner · Consumer Support'},
+  {sev:'high', title:'Outcome signals arriving 46 minutes late', when:'2 h ago', src:'Core banking (Postgres)',
+   body:'Logical replication lag above the 15-minute threshold. Traces are being scored without outcome joins, which degrades preference mining and V-060.',
+   action:'Page platform on-call'},
+  {sev:'med', title:'V-052 agreement has drifted below floor', when:'yesterday', src:'V-052 Tone',
+   body:'κ has fallen 0.82 → 0.71 over 14 days. 40 fresh traces queued for recalibration. Verdicts remain in force but are flagged in the scorecard.',
+   action:'Review 40 samples'},
+  {sev:'med', title:'Uncovered cluster growing', when:'yesterday', src:'Coverage monitor',
+   body:'"Investment guidance" reached 3,110 traces this week with no promoted verifier. This is regulated content.',
+   action:'Create verifier'},
+  {sev:'low', title:'Vercel AI SDK traffic is quarantined', when:'2 days ago', src:'Connector',
+   body:'No redaction policy assigned. 4,880 traces held and not scored. Nothing has been ingested into datasets.',
+   action:'Assign redaction policy'},
+];
+const SEV = {high:{cls:'bad',label:'High'},med:{cls:'warn',label:'Medium'},low:{cls:'neutral',label:'Low'}};
+
+const QUEUE = [
+  {id:'rq_01',trace:'tr_8f21a2',task:'KYC document request',reason:'Verifiers disagree',
+   detail:'V-041 fails at 0.62; V-052 passes at 0.55. Both below the 0.75 confidence floor.',
+   excerpt:'Please upload your PAN card and we will get you verified.',
+   ask:'Is this KYC document request sufficient for a business-tier customer?'},
+  {id:'rq_02',trace:'tr_8f2172',task:'Investment question',reason:'No verifier covers this',
+   detail:'Cluster "investment guidance" has 3,110 traces in 7 days and no promoted verifier.',
+   excerpt:'Many customers find the fund gives better long-run returns than a fixed deposit…',
+   ask:'Does this cross the line into regulated investment advice?'},
+  {id:'rq_03',trace:'tr_8f2141',task:'Chargeback dispute',reason:'Judge contradicts outcome',
+   detail:'V-033 passed this reply, but Zendesk shows the ticket was reopened after 2 days.',
+   excerpt:'Your dispute is now with our investigations team and they will be in touch.',
+   ask:'Was this reply actually adequate under policy §4.2?'},
+  {id:'rq_04',trace:'tr_8f2103',task:'Fee complaint',reason:'Drift sample',
+   detail:'V-052 agreement fell 0.82 → 0.71 over 14 days. Recalibration sample.',
+   excerpt:'As explained in our terms, this fee was disclosed when you opened the account.',
+   ask:'Is this reply defensive?'},
+];
+
+const POLICIES = [
+  {id:'P-01',name:'Production reply gate',mode:'Gate',applied:'All customer-facing replies',
+   rule:'Block if any CRITICAL verifier fails. Route to human if combined confidence < 0.75.',
+   members:[['V-021','critical'],['V-014','critical'],['V-033','critical'],['V-052','advisory']],
+   volume:'412,330 calls',effect:'1,842 blocked · 6,610 routed to human',latency:'+38 ms p50'},
+  {id:'P-02',name:'Gold dataset filter',mode:'Dataset',applied:'Training-set construction',
+   rule:'Keep only traces where every applicable verifier passes AND the outcome signal is positive.',
+   members:[['V-014','required'],['V-033','required'],['V-052','required']],
+   volume:'412,330 traces',effect:'11,204 kept (2.7%)',latency:'batch'},
+  {id:'P-03',name:'Cheap-model routing',mode:'Route',applied:'Model selection',
+   rule:'Serve with the 8B fine-tune; escalate to the frontier model when any verifier fails or confidence < 0.8.',
+   members:[['V-014','trigger'],['V-041','trigger'],['V-033','trigger']],
+   volume:'96,440 calls',effect:'71% served locally · ₹4.1L/mo saved',latency:'+12 ms p50'},
+  {id:'P-04',name:'Weekly scorecard',mode:'Measure',applied:'Reporting only',
+   rule:'Score every trace with all promoted verifiers. No enforcement.',
+   members:[['V-014','scored'],['V-021','scored'],['V-033','scored'],['V-041','scored'],['V-052','scored']],
+   volume:'412,330 traces',effect:'Report delivered Mondays 08:00',latency:'batch'},
+];
+
+const TREND=[88.1,88.6,87.9,89.4,90.2,90.0,91.3,91.1,92.0,91.6,92.4,93.1,92.8,93.6];
+const TESTCASES=[
+  {expect:true,text:'&ldquo;I’ve approved a refund of ₹2,480.00 to your card ending 4417. It will settle in 5–7 business days.&rdquo;'},
+  {expect:false,text:'&ldquo;Your refund has been approved and will be processed shortly.&rdquo;'},
+  {expect:false,text:'&ldquo;I’ve refunded ₹2,480. You should see it soon.&rdquo;'},
+  {expect:true,text:'&ldquo;A refund of ₹1,150 has been issued; expect it within 3 to 5 working days.&rdquo;'},
+  {expect:true,text:'&ldquo;Refund approved: ₹899.00, settling in 7 business days to your original payment method.&rdquo;'},
+  {expect:false,text:'&ldquo;I have escalated your refund request to the payments team.&rdquo;'},
+];
+const GEN_CASES=[
+  {verdict:false,src:'tr_8f2172',text:'&ldquo;Many customers find the fund gives better long-run returns than a fixed deposit, though returns are not guaranteed.&rdquo;',why:'Comparative return claim, no redirect to a licensed adviser.'},
+  {verdict:true,src:'tr_8f20c4',text:'&ldquo;I’m not able to advise on investments. Our licensed advisers can help — shall I book you a call?&rdquo;',why:'Explicit refusal plus redirect.'},
+  {verdict:false,src:'tr_8f2098',text:'&ldquo;For someone in the 30% tax bracket, ELSS would probably save you more.&rdquo;',why:'Tax assertion with a recommendation.'},
+  {verdict:true,src:'tr_8f2071',text:'&ldquo;The current rate on that FD is 7.1% p.a. I can’t say whether it suits your goals.&rdquo;',why:'States a fact, declines to recommend.'},
+  {verdict:false,src:'tr_8f2043',text:'&ldquo;I’d put about half in the balanced fund and keep the rest liquid.&rdquo;',why:'Direct allocation recommendation.'},
+  {verdict:true,src:'tr_8f2019',text:'&ldquo;Here is the factsheet. Please review it with an adviser before deciding.&rdquo;',why:'Provides material without recommending.'},
+];
+
+/* ============================ STATE ============================ */
+const S={view:'overview',verifier:null,trace:null,conn:null,tab:'criterion',scoreTab:'quality',
+  connTab:'traffic',studio:{step:0,cases:[],text:''},queue:{},palette:false};
+const $=h=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild;};
+const pct=(n,d=1)=>n==null?'—':(n*100).toFixed(d)+'%';
+const V=id=>VERIFIERS.find(v=>v.id===id);
+const C=id=>SOURCES.find(c=>c.id===id);
+function go(view,opt={}){Object.assign(S,{view,verifier:null,trace:null,conn:null},opt);S.palette=false;render();window.scrollTo(0,0);}
+
+/* ============================ NAV ============================ */
+const NAV=[
+ {group:'',items:[{id:'overview',label:'Overview'}]},
+ {group:'Collect',items:[{id:'connectors',label:'Connectors',count:'11'},{id:'traces',label:'Traces',count:'573k'}]},
+ {group:'Measure',items:[{id:'scorecard',label:'Scorecard'},{id:'alerts',label:'Alerts',count:2,alert:true}]},
+ {group:'Define',items:[{id:'verifiers',label:'Verifiers',count:VERIFIERS.length},{id:'studio',label:'Verifier Studio'},
+   {id:'library',label:'Verifier Library'},{id:'queue',label:'Review queue',count:QUEUE.length}]},
+ {group:'Apply',items:[{id:'policies',label:'Policies',count:POLICIES.length},{id:'datasets',label:'Datasets & training'}]},
+];
+function renderNav(){
+  const n=document.getElementById('nav');n.innerHTML='';
+  NAV.forEach(g=>{
+    if(g.group)n.appendChild($(`<div class="navlabel">${g.group}</div>`));
+    else n.appendChild($(`<div style="height:4px"></div>`));
+    g.items.forEach(it=>{
+      const b=$(`<button class="${S.view===it.id?'on':''}"><span>${it.label}</span>${it.count!=null?`<span class="count ${it.alert?'alert':''}">${it.count}</span>`:''}</button>`);
+      b.onclick=()=>go(it.id);n.appendChild(b);
+    });
+  });
+}
+function kpi(k,v,d,dir){return `<div class="card kpi"><div class="bd"><div class="k">${k}</div><div class="v">${v}</div><div class="d ${dir||''}">${d}</div></div></div>`}
+function gateRow(label,val,floor,raw){const ok=val!=null&&val>=floor;
+  return `<div class="row" style="justify-content:space-between"><span>${label}</span>
+  <span class="pill ${val==null?'neutral':ok?'ok':'bad'}"><i class="dot"></i>${val==null?'not measured':(raw!=null?raw:val.toFixed(2))}</span></div>`}
+
+/* ============================ VIEWS ============================ */
+
+function vOverview(){
+  return `
+  <div class="pagehead"><div style="flex:1">
+    <h1>Overview</h1><p class="sub">Northwind Financial · production · 09 Sep 2026, 11:42 IST</p>
+  </div><button class="btn">Invite an expert</button><button class="btn primary" data-goto="studio">New verifier</button></div>
+
+  <div class="card" style="margin-bottom:12px"><div class="hd"><h2>Pipeline</h2><span class="spacer"></span>
+    <span class="pill ok"><i class="dot live"></i>Healthy</span><span class="tsub">last event 3 s ago</span></div>
+    <div class="bd"><div class="pipe">
+      <div class="node"><div class="t">Collect</div><div class="n">573,000</div><div class="tsub">traces · 6 live sources</div></div>
+      <div class="link">&rarr;</div>
+      <div class="node"><div class="t">Join outcomes</div><div class="n">61%</div><div class="tsub">have a ground-truth signal</div></div>
+      <div class="link">&rarr;</div>
+      <div class="node"><div class="t">Verify</div><div class="n">93.6%</div><div class="tsub">verified pass rate</div></div>
+      <div class="link">&rarr;</div>
+      <div class="node"><div class="t">Decide</div><div class="n">1,842</div><div class="tsub">blocked · 6,610 to humans</div></div>
+    </div>
+    <div class="note warn" style="margin-top:12px"><b>Outcome coverage is 61%.</b> Traces without an outcome signal can be scored but cannot be used for preference mining or reward. Connecting Salesforce Service Cloud would lift onboarding coverage from 22% to an estimated 74%. <button class="btn sm" data-goto="connectors" style="margin-left:6px">Review connectors</button></div>
+    </div></div>
+
+  <div class="grid g4" style="margin-bottom:12px">
+    ${kpi('Verified pass rate','93.6%','+2.3 pts vs last week','up')}
+    ${kpi('Incidents prevented','1,842','replies blocked before send','')}
+    ${kpi('Expert hours this week','4.5','across 4 people','')}
+    ${kpi('Leverage','2,140×','machine judgments per expert judgment','')}
+  </div>
+
+  <div class="split">
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>Needs your attention</h2><span class="spacer"></span><button class="btn sm" data-goto="alerts">All alerts</button></div>
+        <div class="bd stack">${ALERTS.slice(0,3).map(a=>`
+          <div class="row" style="align-items:flex-start;gap:10px">
+            <span class="pill ${SEV[a.sev].cls}" style="margin-top:2px"><i class="dot"></i>${SEV[a.sev].label}</span>
+            <div style="flex:1"><div class="tname">${a.title}</div><div class="tsub">${a.src} · ${a.when}</div></div>
+            <button class="btn sm">${a.action.split(' · ')[0]}</button>
+          </div>`).join('')}
+        </div></div>
+
+      <div class="card"><div class="hd"><h2>Value this quarter</h2><span class="spacer"></span><span class="tsub">for the CFO pack</span></div>
+        <div class="bd"><table>
+          <thead><tr><th>Line</th><th class="num">Amount</th><th>Basis</th></tr></thead>
+          <tbody>
+            <tr><td>Unauthorised fee waivers prevented</td><td class="num"><b>₹18.4L</b></td><td class="tsub">1,842 blocks × mean waiver</td></tr>
+            <tr><td>Inference cost avoided by routing</td><td class="num"><b>₹12.3L</b></td><td class="tsub">P-03 · 71% served on the 8B fine-tune</td></tr>
+            <tr><td>Repeat-contact reduction</td><td class="num"><b>₹6.9L</b></td><td class="tsub">KYC re-request rate 21% → 9%</td></tr>
+            <tr><td>Cost of verification</td><td class="num"><b>−₹1.5L</b></td><td class="tsub">judges + distilled models</td></tr>
+            <tr><td><b>Net</b></td><td class="num"><b>₹36.1L</b></td><td class="tsub">quarter to date</td></tr>
+          </tbody></table></div></div>
+    </div>
+
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>Get to full coverage</h2><span class="spacer"></span><span class="tsub">4 of 7</span></div>
+        <div class="bd">
+          <div class="progress" style="margin-bottom:12px"><i style="width:57%"></i></div>
+          ${[['Connect a traffic source','done','LiteLLM, OpenRouter, LangGraph, OTel'],
+             ['Turn on redaction','done','41 rules · 0 leaks in 7 days'],
+             ['Connect an outcome signal','done','Zendesk, Stripe, Jira, agent console'],
+             ['Promote your first verifier','done','V-014 · 2 Sep'],
+             ['Cover your top 5 clusters','now','4 of 5 — "investment guidance" uncovered'],
+             ['Turn a policy on in blocking mode','now','P-01 live · P-03 in shadow'],
+             ['Ship a model that beats the baseline','todo','r-0114 at 91.2% vs 93.6% baseline']
+            ].map(([t,st,sub])=>`
+            <div class="check"><div class="box ${st==='done'?'done':st==='now'?'now':''}">${st==='done'?'&#10003;':''}</div>
+            <div><div class="${st==='todo'?'tsub':''}" style="font-weight:${st==='todo'?400:500}">${t}</div><div class="tsub">${sub}</div></div></div>`).join('')}
+        </div></div>
+
+      <div class="card"><div class="hd"><h2>Experts</h2></div><div class="bd">
+        <table><thead><tr><th>Person</th><th class="num">Verifiers</th><th class="num">Labels</th><th class="num">Queue</th></tr></thead>
+        <tbody>
+          <tr><td>A. Mehra<div class="tsub">Support Ops</div></td><td class="num">2</td><td class="num">472</td><td class="num">2</td></tr>
+          <tr><td>S. Bhatt<div class="tsub">Compliance</div></td><td class="num">3</td><td class="num">540</td><td class="num">1</td></tr>
+          <tr><td>R. Iyer<div class="tsub">Risk</div></td><td class="num">2</td><td class="num">276</td><td class="num">1</td></tr>
+          <tr><td>P. Kulkarni<div class="tsub">Support Ops</div></td><td class="num">1</td><td class="num">150</td><td class="num">0</td></tr>
+        </tbody></table></div></div>
+    </div>
+  </div>`;
+}
+
+function vConnectors(){
+  if(S.conn) return vConnDetail();
+  const traffic=SOURCES.filter(c=>c.kind==='traffic'), outcome=SOURCES.filter(c=>c.kind==='outcome');
+  const list = S.connTab==='traffic'?traffic:outcome;
+  return `
+  <div class="pagehead"><div style="flex:1">
+    <h1>Connectors</h1><p class="sub">Where the traffic comes from — and, more importantly, where the truth comes from.</p>
+  </div><button class="btn">Redaction policies</button><button class="btn primary">Add connector</button></div>
+
+  <div class="grid g4" style="margin-bottom:14px">
+    ${kpi('Traffic ingested','573,000','7 days · 6 live sources','')}
+    ${kpi('Outcome coverage','61%','of traces have a ground-truth signal','')}
+    ${kpi('Redaction','41 rules','0 leaks · 4,880 quarantined','')}
+    ${kpi('Max join lag','46 min','Core banking — above threshold','down')}
+  </div>
+
+  <div class="tabs">
+    <button class="${S.connTab==='traffic'?'on':''}" data-ctab="traffic">Traffic sources (${traffic.length})</button>
+    <button class="${S.connTab==='outcome'?'on':''}" data-ctab="outcome">Outcome signals (${outcome.length})</button>
+  </div>
+
+  ${S.connTab==='outcome'?`<div class="note info" style="margin-bottom:14px">
+    <b>These are the connectors that matter most.</b> A stream of prompts and completions with no outcomes attached is a log, not a dataset — you can describe what the AI said, but never whether it was right. Outcome coverage cannot be backfilled: a month logged without outcomes is worth a fraction of what it could have been.
+  </div>`:''}
+
+  <div class="grid g3">${list.map(c=>{
+    const st=CONN_STATUS[c.status];
+    return `<div class="conncard ${['available','paused'].includes(c.status)?'off':''}" data-c="${c.id}">
+      <div class="row" style="align-items:flex-start;margin-bottom:9px">
+        <div class="logo">${c.logo}</div>
+        <div style="flex:1"><div class="tname">${c.name}</div><div class="tsub">${c.cat}</div></div>
+        <span class="pill ${st.cls}"><i class="dot ${c.status==='live'?'live':''}"></i>${st.label}</span>
+      </div>
+      <dl class="kv" style="grid-template-columns:92px 1fr;font-size:12px">
+        <dt>Volume 7d</dt><dd>${c.vol}</dd>
+        <dt>Join lag</dt><dd class="${c.status==='degraded'?'down':''}">${c.lag}</dd>
+        <dt>${c.kind==='outcome'?'Signals':'Captures'}</dt><dd class="tsub">${(c.signals||c.captures).split(' · ').slice(0,3).join(' · ')}${(c.signals||c.captures).split(' · ').length>3?' …':''}</dd>
+      </dl>
+    </div>`}).join('')}
+  </div>
+
+  ${S.connTab==='traffic'?`<div class="note" style="margin-top:14px">
+    Redaction runs <b>inside your network</b> before anything is stored. Traffic from a source with no redaction policy is quarantined, not scored — the Vercel AI SDK source is in that state now.
+  </div>`:''}`;
+}
+
+function vConnDetail(){
+  const c=C(S.conn), st=CONN_STATUS[c.status];
+  return `
+  <button class="back" data-goto="connectors">&larr; All connectors</button>
+  <div class="pagehead"><div class="logo" style="width:38px;height:38px;font-size:14px">${c.logo}</div>
+  <div style="flex:1"><h1>${c.name}</h1><p class="sub">${c.cat} · ${c.kind==='outcome'?'outcome signal':'traffic source'} · ${c.mode}</p></div>
+  <span class="pill ${st.cls}" style="height:26px;padding:0 11px"><i class="dot ${c.status==='live'?'live':''}"></i>${st.label}</span>
+  <button class="btn">Test</button><button class="btn ${c.status==='live'?'danger':'primary'}">${c.status==='live'?'Pause':'Connect'}</button></div>
+
+  <div class="split"><div class="stack">
+    <div class="card"><div class="hd"><h2>What this connector produces</h2></div><div class="bd">
+      <div class="row" style="flex-wrap:wrap;gap:6px">${(c.signals||c.captures).split(' · ').map(s=>`<span class="tag mono">${s}</span>`).join('')}</div>
+      <div class="tsub" style="margin-top:10px">${c.note}</div></div></div>
+
+    <div class="card"><div class="hd"><h2>Field mapping</h2><span class="spacer"></span><span class="tsub">source &rarr; canonical trace</span></div>
+      <div class="wrapx"><table><thead><tr><th>Source field</th><th>Canonical field</th><th>Status</th></tr></thead><tbody>
+      ${(c.kind==='outcome'?[['ticket.status','signals.resolved','mapped'],['ticket.reopened_at','signals.reopened_within_7d','mapped'],
+        ['ticket.satisfaction','signals.csat','mapped'],['ticket.custom_field_88','signals.resolution_code','unmapped'],
+        ['ticket.external_id','join_key.conversation_id','join key']]
+       :[['messages[]','trace.messages','mapped'],['model','trace.model','mapped'],['tool_calls[]','trace.tool_calls','mapped'],
+        ['metadata.user_id','trace.actor (pseudonymised)','mapped'],['response_cost','trace.cost_usd','mapped'],
+        ['metadata.session_id','join_key.conversation_id','join key']]).map(([a,b,s])=>`
+        <tr><td class="mono">${a}</td><td class="mono">${b}</td><td><span class="pill ${s==='unmapped'?'warn':s==='join key'?'info':'neutral'}">${s}</span></td></tr>`).join('')}
+      </tbody></table></div></div>
+
+    ${c.kind==='traffic'?`<div class="card"><div class="hd"><h2>Redaction preview</h2><span class="spacer"></span><span class="pill ok"><i class="dot"></i>${c.redact}</span></div>
+      <div class="bd">
+        <div class="tsub" style="margin-bottom:5px">Before — never stored</div>
+        <div class="msg mono">Hi, this is Ritu Sharma, card 4539 1488 0343 6467, ritu.s@northwind.in — refund my ₹2,480.</div>
+        <div class="tsub" style="margin:10px 0 5px">After — what Ground stores</div>
+        <div class="msg assistant mono">Hi, this is &lt;PERSON_7f1a&gt;, card &lt;CREDIT_CARD&gt;, &lt;EMAIL_2b9c&gt; — refund my ₹2,480.</div>
+        <div class="note ok" style="margin-top:10px">Pseudonyms are stable within a workspace, so multi-turn conversations still join correctly. The mapping vault never leaves your network.</div>
+      </div></div>`:''}
+  </div>
+
+  <div class="stack">
+    <div class="card"><div class="hd"><h2>Health</h2></div><div class="bd stack">
+      <dl class="kv" style="grid-template-columns:118px 1fr">
+        <dt>Status</dt><dd><span class="pill ${st.cls}"><i class="dot"></i>${st.label}</span></dd>
+        <dt>Volume 7d</dt><dd><b>${c.vol}</b></dd>
+        <dt>Join lag p95</dt><dd class="${c.status==='degraded'?'down':''}">${c.lag}</dd>
+        <dt>Ingest mode</dt><dd>${c.mode}</dd>
+        <dt>Redaction</dt><dd>${c.redact}</dd>
+        <dt>PII incidents</dt><dd>${c.pii}</dd>
+      </dl>
+      ${c.status==='degraded'?`<div class="note bad"><b>Lag above threshold.</b> Outcomes are joining 46 minutes late; traces scored in that window have no ground-truth label.</div>`:''}
+      ${c.status==='setup'?`<div class="note warn"><b>Quarantined.</b> 4,880 traces held. Assign a redaction policy to release them.</div>`:''}
+    </div></div>
+
+    <div class="card"><div class="hd"><h2>Install</h2></div><div class="bd">
+      <pre class="mono" style="margin:0;white-space:pre-wrap;color:var(--muted)">${c.kind==='outcome'
+        ? `# 1. add the webhook\n  POST https://in.ground.dev/w/${c.id}\n\n# 2. tell us how to join\n  join_key: ticket.external_id\n         -> trace.conversation_id\n\n# 3. pick the signals\n  resolved, reopened_within_7d, csat`
+        : `# litellm config.yaml\nlitellm_settings:\n  callbacks: ["ground"]\n\nenvironment_variables:\n  GROUND_ENDPOINT: https://in.ground.dev\n  GROUND_KEY: sk_live_...\n  GROUND_REDACT: strict`}</pre>
+    </div></div>
+    <div class="note">Ground is never in the request path. If ingestion fails, your production traffic is unaffected — we drop data rather than degrade your service.</div>
+  </div></div>`;
+}
+
+function vScorecard(){
+  const promoted=VERIFIERS.filter(v=>['promoted','drifting'].includes(v.status));
+  const spark=TREND.map((v,i)=>{const h=(v-85)/10*46;
+    return `<rect x="${i*22}" y="${52-h}" width="14" height="${h}" rx="1.5" fill="var(--accent)" opacity="${i===TREND.length-1?1:.35}"/>`}).join('');
+  const tabs={quality:'Quality',coverage:'Coverage',cost:'Cost & value',trust:'Trust'};
+  let body='';
+  if(S.scoreTab==='quality'){body=`
+    <div class="split"><div class="stack">
+      <div class="card"><div class="hd"><h2>Verified pass rate, 14 days</h2><span class="spacer"></span><span class="tsub">all promoted verifiers</span></div>
+        <div class="bd"><svg viewBox="0 0 308 60" width="100%" height="88" preserveAspectRatio="none" role="img" aria-label="trend">${spark}</svg>
+        <div class="row" style="justify-content:space-between;color:var(--muted);font-size:12px"><span>27 Aug</span><span>9 Sep</span></div></div></div>
+      <div class="card"><div class="hd"><h2>Where it fails</h2><span class="spacer"></span><span class="tsub">by criterion</span></div>
+        <div class="wrapx"><table><thead><tr><th>Criterion</th><th>Owner</th><th class="num">Applicable</th><th class="num">Fail rate</th><th style="width:140px"></th></tr></thead>
+        <tbody>${promoted.map(v=>`<tr class="click" data-v="${v.id}">
+          <td><span class="tname">${v.name}</span><div class="tsub mono">${v.id}</div></td>
+          <td class="tsub">${v.owner}</td><td class="num">${v.runs.toLocaleString()}</td>
+          <td class="num"><b>${pct(v.failRate)}</b></td>
+          <td><div class="bar ${v.failRate>.15?'b':v.failRate>.07?'w':'g'}"><i style="width:${Math.min(100,v.failRate*400)}%"></i></div></td></tr>`).join('')}
+        </tbody></table></div></div>
+    </div>
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>By team</h2></div><div class="bd"><table>
+        <tbody>
+        ${[['Consumer Support','94.8%',95],['Onboarding','88.1%',88],['Growth (experiments)','79.4%',79],['Collections','96.2%',96]].map(([t,p,n])=>`
+        <tr><td>${t}</td><td class="num"><b>${p}</b></td><td style="width:90px"><div class="bar ${n<85?'b':n<92?'w':'g'}"><i style="width:${n}%"></i></div></td></tr>`).join('')}
+        </tbody></table></div></div>
+      <div class="card"><div class="hd"><h2>By model</h2></div><div class="bd"><table><tbody>
+        ${[['gpt-4o-mini','93.6%',94],['llama-3.3-70b (self-hosted)','89.2%',89],['ground-8b-r0114 (yours)','91.2%',91]].map(([t,p,n])=>`
+        <tr><td class="tsub">${t}</td><td class="num"><b>${p}</b></td><td style="width:70px"><div class="bar ${n<90?'w':'g'}"><i style="width:${n}%"></i></div></td></tr>`).join('')}
+      </tbody></table></div></div>
+    </div></div>`;}
+  if(S.scoreTab==='coverage'){body=`
+    <div class="note info" style="margin-bottom:12px"><b>3,110 traces</b> in the cluster <b>“investment guidance”</b> are unverified — your largest uncovered cluster, and it is regulated content.</div>
+    <div class="card"><div class="wrapx"><table>
+      <thead><tr><th>Cluster</th><th class="num">Volume 7d</th><th class="num">Verifier coverage</th><th class="num">Outcome coverage</th><th>Risk</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Refunds &amp; duplicate charges</td><td class="num">104,200</td><td class="num"><span class="pill ok"><i class="dot"></i>Full</span></td><td class="num">92%</td><td class="tsub">Financial</td><td></td></tr>
+        <tr><td>Card replacement</td><td class="num">88,904</td><td class="num"><span class="pill ok"><i class="dot"></i>Full</span></td><td class="num">88%</td><td class="tsub">Low</td><td></td></tr>
+        <tr><td>Chargeback disputes</td><td class="num">38,210</td><td class="num"><span class="pill ok"><i class="dot"></i>Full</span></td><td class="num">81%</td><td class="tsub">Regulated</td><td></td></tr>
+        <tr><td>KYC &amp; onboarding</td><td class="num">96,440</td><td class="num"><span class="pill warn"><i class="dot"></i>Partial</span></td><td class="num">22%</td><td class="tsub">Regulated</td><td class="num"><button class="btn sm" data-goto="connectors">Add source</button></td></tr>
+        <tr><td>Account closure</td><td class="num">2,480</td><td class="num"><span class="pill warn"><i class="dot"></i>Partial</span></td><td class="num">64%</td><td class="tsub">Retention</td><td class="num"><button class="btn sm" data-goto="studio">Create</button></td></tr>
+        <tr><td>Investment guidance</td><td class="num">3,110</td><td class="num"><span class="pill bad"><i class="dot"></i>None</span></td><td class="num">4%</td><td class="tsub"><b>Regulated</b></td><td class="num"><button class="btn sm" data-goto="studio">Create</button></td></tr>
+      </tbody></table></div></div>
+    <div class="note" style="margin-top:12px">Coverage is reported two ways on purpose. <b>Verifier coverage</b> asks whether anyone has defined correct for this cluster. <b>Outcome coverage</b> asks whether reality ever told us who was right. Low outcome coverage caps everything downstream.</div>`;}
+  if(S.scoreTab==='cost'){body=`
+    <div class="grid g2"><div class="card"><div class="hd"><h2>Cost of verification</h2></div><div class="bd stack">
+      <table><thead><tr><th>Tier</th><th class="num">Runs</th><th class="num">Cost 7d</th></tr></thead><tbody>
+        <tr><td>Rules &amp; code</td><td class="num">412,330</td><td class="num">₹0</td></tr>
+        <tr><td>Distilled models</td><td class="num">96,440</td><td class="num">₹1,608</td></tr>
+        <tr><td>LLM judges</td><td class="num">38,210</td><td class="num">₹9,870</td></tr>
+        <tr><td>Human review</td><td class="num">312</td><td class="num">₹4,700</td></tr>
+        <tr><td><b>Total</b></td><td class="num"></td><td class="num"><b>₹16,178</b></td></tr>
+      </tbody></table>
+      <div class="note ok">Judges run only on survivors of the free tiers. Running them on all traffic would cost <b>₹2.4L</b>/week — 21× more.</div>
+    </div></div>
+    <div class="card"><div class="hd"><h2>Value returned</h2></div><div class="bd stack">
+      <table><thead><tr><th>Line</th><th class="num">Quarter to date</th></tr></thead><tbody>
+        <tr><td>Unauthorised fee waivers prevented</td><td class="num">₹18.4L</td></tr>
+        <tr><td>Inference cost avoided (P-03 routing)</td><td class="num">₹12.3L</td></tr>
+        <tr><td>Repeat-contact reduction</td><td class="num">₹6.9L</td></tr>
+        <tr><td>Verification cost</td><td class="num">−₹1.5L</td></tr>
+        <tr><td><b>Net</b></td><td class="num"><b>₹36.1L</b></td></tr>
+      </tbody></table>
+      <div class="note">Every line here traces to a named verifier and a policy. Click through to the traces behind any number.</div>
+    </div></div></div>`;}
+  if(S.scoreTab==='trust'){body=`
+    <div class="split"><div class="card"><div class="hd"><h2>How much should you believe these numbers?</h2></div><div class="bd stack">
+      <p class="sub">Every figure in this scorecard was produced by a verifier with a measured error rate against your own experts. Verifiers that have not cleared their gate are excluded and marked advisory.</p>
+      <table><thead><tr><th>Verifier</th><th class="num">κ</th><th class="num">Labels</th><th>Counted?</th></tr></thead><tbody>
+        ${VERIFIERS.map(v=>`<tr class="click" data-v="${v.id}"><td>${v.name}<div class="tsub mono">${v.id}</div></td>
+        <td class="num">${v.kappa?v.kappa.toFixed(2):'—'}</td><td class="num">${v.labeled}</td>
+        <td>${['promoted','drifting'].includes(v.status)?'<span class="pill ok"><i class="dot"></i>Counted</span>':'<span class="pill neutral">Advisory only</span>'}</td></tr>`).join('')}
+      </tbody></table>
+    </div></div>
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>Summary</h2></div><div class="bd"><dl class="kv" style="grid-template-columns:160px 1fr">
+        <dt>Verifiers in force</dt><dd>5</dd>
+        <dt>Median agreement</dt><dd><b>0.87</b> κ</dd>
+        <dt>Weakest in force</dt><dd>V-052 · κ 0.71 · drifting</dd>
+        <dt>Excluded</dt><dd>V-067 (failed gate), V-060 (calibrating), V-071 (draft)</dd>
+        <dt>Expert labels behind</dt><dd>1,438</dd>
+        <dt>Last recalibration</dt><dd>2 days ago</dd>
+      </dl></div></div>
+      <div class="note">This tab exists because it is the question a serious buyer asks second, and almost no evaluation product answers it.</div>
+    </div></div>`;}
+
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Scorecard</h1>
+    <p class="sub">How the AI performed against your experts’ definition of correct.</p></div>
+    <button class="btn">Export PDF</button><button class="btn primary">Share report</button></div>
+  <div class="grid g4" style="margin-bottom:14px">
+    ${kpi('Verified pass rate','93.6%','+2.3 pts vs last week','up')}
+    ${kpi('Traces scored','573,000','100% of eligible traffic','')}
+    ${kpi('Blocked before send','1,842','0.32% of traffic','')}
+    ${kpi('Expert hours','4.5','this week','')}
+  </div>
+  <div class="tabs">${Object.entries(tabs).map(([k,l])=>`<button class="${S.scoreTab===k?'on':''}" data-stab="${k}">${l}</button>`).join('')}</div>
+  ${body}`;
+}
+
+function vAlerts(){
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Alerts</h1>
+    <p class="sub">What the verifiers caught that a dashboard would not have told you.</p></div>
+    <button class="btn">Notification rules</button></div>
+  <div class="stack">${ALERTS.map(a=>`
+    <div class="card"><div class="hd">
+      <span class="pill ${SEV[a.sev].cls}"><i class="dot"></i>${SEV[a.sev].label}</span>
+      <span class="tname">${a.title}</span><span class="spacer"></span><span class="tsub">${a.src} · ${a.when}</span></div>
+      <div class="bd"><div class="tsub" style="margin-bottom:10px">${a.body}</div>
+      <div class="row"><button class="btn sm primary">${a.action}</button><button class="btn sm">View traces</button>
+      <button class="btn sm">Snooze</button></div></div></div>`).join('')}
+  </div>`;
+}
+
+function vTraces(){
+  if(S.trace) return vTraceDetail();
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Traces</h1>
+    <p class="sub">Every AI interaction, scored by the verifiers that apply to it.</p></div>
+    <select style="width:150px"><option>All decisions</option><option>Failed only</option><option>Needs review</option></select>
+    <select style="width:150px"><option>All sources</option><option>LiteLLM Gateway</option><option>LangGraph runtime</option></select>
+    <button class="btn">Save view</button></div>
+  <div class="card"><div class="wrapx"><table>
+    <thead><tr><th>Trace</th><th>Task</th><th>Source</th><th>Decision</th><th class="num">Conf.</th><th>Outcome signal</th><th class="num">When</th></tr></thead>
+    <tbody>${TRACES.map(t=>`<tr class="click" data-t="${t.id}">
+      <td class="mono">${t.id}</td>
+      <td><span class="tname">${t.task}</span><div class="tsub">${t.channel} · ${t.model}</div></td>
+      <td class="tsub">${t.src}</td>
+      <td><span class="pill ${DECISION[t.decision].cls}"><i class="dot"></i>${DECISION[t.decision].label}</span></td>
+      <td class="num">${t.conf.toFixed(2)}</td>
+      <td><span class="tsub">${t.outcome}</span><div class="tsub" style="opacity:.7">${t.outcomeSrc}</div></td>
+      <td class="num tsub">${t.when}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
+function vTraceDetail(){
+  const t=TRACES.find(x=>x.id===S.trace);
+  return `
+  <button class="back" data-goto="traces">&larr; All traces</button>
+  <div class="pagehead"><div style="flex:1"><h1>${t.task}</h1>
+    <p class="sub"><span class="mono">${t.id}</span> · ${t.channel} · ${t.team} · via ${t.src} · ${t.when}</p></div>
+    <span class="pill ${DECISION[t.decision].cls}" style="height:26px;padding:0 11px"><i class="dot"></i>${DECISION[t.decision].label}</span></div>
+  <div class="split">
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>Conversation</h2><span class="spacer"></span><span class="tsub">highlights are verifier evidence</span></div>
+        <div class="bd">${t.msgs.map(m=>`<div class="msg ${m.who==='Assistant'?'assistant':''}"><div class="who">${m.who}</div><div>${m.text}</div></div>`).join('')}
+        <div class="note" style="margin-top:10px"><b>Outcome signal:</b> ${t.outcome} <span class="tag" style="margin-left:6px">${t.outcomeSrc}</span></div></div></div>
+      <div class="card"><div class="hd"><h2>Do you agree with these verdicts?</h2></div><div class="bd row">
+        <button class="btn sm">Agree with all</button><button class="btn sm">Override a verdict</button>
+        <button class="btn sm">Add to calibration set</button><span class="spacer"></span>
+        <span class="tsub">Overrides become labels and re-open the affected verifier.</span></div></div>
+    </div>
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>Verdicts</h2></div><div class="bd stack">
+        ${t.verdicts.map(vd=>{const v=V(vd.v);return `
+        <div style="border:1px solid var(--border);border-radius:var(--r);padding:10px 11px">
+          <div class="row" style="margin-bottom:5px"><span class="pill ${vd.pass?'ok':'bad'}"><i class="dot"></i>${vd.pass?'Pass':'Fail'}</span>
+          <span class="spacer"></span><span class="tsub">conf ${vd.conf.toFixed(2)}</span></div>
+          <div class="tname" style="font-size:12.5px">${v.name}</div>
+          <div class="tsub mono" style="margin-bottom:5px">${v.id} v${v.version} · ${TYPE[v.type].label}${v.status!=='promoted'?` · <span style="color:var(--warn)">${STATUS[v.status].label}</span>`:''}</div>
+          <div class="tsub">${vd.why}</div></div>`}).join('')}
+      </div></div>
+      <div class="card"><div class="hd"><h2>Lineage</h2></div><div class="bd"><dl class="kv" style="grid-template-columns:120px 1fr">
+        <dt>Traffic source</dt><dd>${t.src}</dd>
+        <dt>Outcome source</dt><dd>${t.outcomeSrc}</dd>
+        <dt>Policy applied</dt><dd>P-01 Production reply gate</dd>
+        <dt>Action taken</dt><dd>${t.decision==='fail'?'Blocked, fallback used':t.decision==='review'?'Routed to human review':'Delivered'}</dd>
+        <dt>In dataset</dt><dd>${t.decision==='pass'?'gold-2026-09-05 · row 4,118':'Excluded'}</dd>
+        <dt>Verification cost</dt><dd class="mono">₹0.0041</dd>
+      </dl></div></div>
+    </div>
+  </div>`;
+}
+
+function vVerifiers(){
+  if(S.verifier) return vVerifierDetail();
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Verifiers</h1>
+    <p class="sub">Executable definitions of “correct”, owned by the people who know the answer.</p></div>
+    <button class="btn" data-goto="library">Browse library</button><button class="btn primary" data-goto="studio">New verifier</button></div>
+  <div class="grid g4" style="margin-bottom:14px">
+    ${kpi('In force','5','promoted to production','')}
+    ${kpi('Median agreement','0.87','κ vs expert labels','')}
+    ${kpi('Blocked by gate','1','V-067 — below κ floor','')}
+    ${kpi('Expert labels','1,438','across all verifiers','')}
+  </div>
+  <div class="card"><div class="wrapx"><table>
+    <thead><tr><th>Verifier</th><th>Type</th><th>Owner</th><th>Status</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">κ</th><th class="num">Cost/1k</th></tr></thead>
+    <tbody>${VERIFIERS.map(v=>`<tr class="click" data-v="${v.id}">
+      <td><span class="tname">${v.name}</span><div class="tsub mono">${v.id} · v${v.version}${v.pack?` · <span class="tag">${v.pack}</span>`:''}${v.heldout?` · <span class="tag" style="color:var(--accent)">held-out</span>`:''}</div></td>
+      <td><span class="pill neutral">${TYPE[v.type].label}</span></td>
+      <td class="tsub">${v.owner}<div class="tsub">${v.team}</div></td>
+      <td><span class="pill ${STATUS[v.status].cls}"><i class="dot"></i>${STATUS[v.status].label}</span></td>
+      <td class="num">${pct(v.precision,0)}</td><td class="num">${pct(v.recall,0)}</td>
+      <td class="num"><b>${v.kappa==null?'—':v.kappa.toFixed(2)}</b></td>
+      <td class="num mono">${v.cost===0?'₹0':'₹'+(v.cost*1000).toFixed(2)}</td></tr>`).join('')}
+    </tbody></table></div></div>
+  <div class="note" style="margin-top:12px">No verifier reaches production traffic until it has been calibrated against expert labels and cleared the promotion gate (κ ≥ 0.75, precision ≥ 0.90). One is blocked right now.</div>`;
+}
+
+function vVerifierDetail(){
+  const v=V(S.verifier), st=STATUS[v.status];
+  const tabs={criterion:'Definition',calibration:'Calibration',tests:'Test cases',versions:'History'};
+  let body='';
+  if(S.tab==='criterion'){body=`
+    <div class="split"><div class="stack">
+      <div class="card"><div class="hd"><h2>Criterion</h2><span class="spacer"></span><span class="tsub">written by ${v.owner}</span></div>
+        <div class="bd"><p style="margin:0;font-size:14px;line-height:1.6">${v.criterion}</p></div></div>
+      <div class="card"><div class="hd"><h2>Implementation</h2><span class="spacer"></span><span class="pill neutral">${TYPE[v.type].label} · ${TYPE[v.type].note}</span></div>
+        <div class="bd"><pre class="mono" style="margin:0;white-space:pre-wrap;color:var(--muted)">${impl(v)}</pre></div></div>
+    </div><div class="stack">
+      <div class="card"><div class="hd"><h2>Lifecycle</h2></div><div class="bd stack">
+        <div class="flow"><span class="step done">Draft</span><span class="arr">&rarr;</span>
+        <span class="step ${v.status==='calibrating'?'on':'done'}">Calibrate</span><span class="arr">&rarr;</span>
+        <span class="step ${v.status==='blocked'?'err':['draft','calibrating'].includes(v.status)?'':'done'}">Gate</span><span class="arr">&rarr;</span>
+        <span class="step ${['promoted','drifting'].includes(v.status)?'done':''}">Promote</span><span class="arr">&rarr;</span>
+        <span class="step ${v.status==='drifting'?'on':''}">Monitor</span></div>
+        <dl class="kv" style="grid-template-columns:120px 1fr">
+          <dt>Status</dt><dd><span class="pill ${st.cls}"><i class="dot"></i>${st.label}</span></dd>
+          <dt>Owner</dt><dd>${v.owner} · ${v.team}</dd>
+          <dt>Runs 7d</dt><dd>${v.runs.toLocaleString()}</dd>
+          <dt>Latency p50</dt><dd>${v.latency} ms</dd>
+          <dt>Cost / 1k</dt><dd class="mono">${v.cost===0?'₹0':'₹'+(v.cost*1000).toFixed(2)}</dd>
+          ${v.pack?`<dt>From pack</dt><dd>${v.pack}</dd>`:''}
+          ${v.distilledFrom?`<dt>Distilled from</dt><dd>${v.distilledFrom}</dd>`:''}
+          ${v.heldout?`<dt>Held out</dt><dd><span class="pill info"><i class="dot"></i>Evaluation only</span></dd>`:''}
+        </dl></div></div>
+      ${v.status==='blocked'?`<div class="note bad"><b>Blocked by the promotion gate.</b> Agreement is κ 0.49, below the 0.75 floor. Your two experts disagreed with <i>each other</i> on 31% of the calibration set — the criterion itself is not yet well defined.</div>`:''}
+      ${v.status==='drifting'?`<div class="note bad"><b>Drift detected.</b> Agreement fell 0.82 → 0.71 over 14 days. 40 fresh traces added to the review queue.</div>`:''}
+      ${v.heldout?`<div class="note info"><b>Held-out verifier.</b> Excluded from every dataset filter and reward signal, used only to evaluate trained models. Without one, an improving score means nothing.</div>`:''}
+      ${v.type==='judge'&&v.status==='promoted'?`<div class="note info"><b>Distillation available.</b> 38,210 verdicts collected. A distilled classifier would cut cost per 1,000 from ₹3.10 to about ₹0.20 for an estimated 2-point accuracy loss.</div>`:''}
+    </div></div>`;}
+  if(S.tab==='calibration'){
+    const tp=Math.round(v.labeled*.44),fp=Math.round(v.labeled*(1-v.precision)*.44/v.precision),
+          fn=Math.round(v.labeled*.44*(1-v.recall)/v.recall),tn=v.labeled-tp-fp-fn;
+    body=`<div class="split"><div class="stack">
+      <div class="card"><div class="hd"><h2>Agreement with your experts</h2><span class="spacer"></span><span class="tsub">${v.labeled} labelled examples</span></div>
+        <div class="bd"><table class="cm" style="width:auto;margin-bottom:14px">
+          <tr><th></th><th>Expert: pass</th><th>Expert: fail</th></tr>
+          <tr><th>Verifier: pass</th><td style="background:var(--good-bg)"><b>${tn}</b><div class="tsub">agreed</div></td><td style="background:var(--bad-bg)"><b>${fn}</b><div class="tsub">missed a failure</div></td></tr>
+          <tr><th>Verifier: fail</th><td style="background:var(--bad-bg)"><b>${fp}</b><div class="tsub">false alarm</div></td><td style="background:var(--good-bg)"><b>${tp}</b><div class="tsub">agreed</div></td></tr>
+        </table>
+        <dl class="kv" style="grid-template-columns:190px 1fr">
+          <dt>Precision</dt><dd><b>${pct(v.precision)}</b> <span class="tsub">of flagged failures were real</span></dd>
+          <dt>Recall</dt><dd><b>${pct(v.recall)}</b> <span class="tsub">of real failures were caught</span></dd>
+          <dt>Agreement (Cohen’s κ)</dt><dd><b>${v.kappa.toFixed(2)}</b> <span class="tsub">chance-corrected</span></dd>
+          <dt>Expert–expert agreement</dt><dd>${v.status==='blocked'?'<b>0.69</b> <span class="tsub">your experts disagree with each other</span>':'<b>0.91</b>'}</dd>
+          <dt>Volume impact</dt><dd>would flag <b>${pct(v.failRate??.09,0)}</b> of live traffic</dd>
+        </dl></div></div>
+      <div class="card"><div class="hd"><h2>Expert time &amp; leverage</h2></div><div class="bd"><dl class="kv" style="grid-template-columns:190px 1fr">
+        <dt>Examples labelled</dt><dd>${v.labeled}</dd>
+        <dt>Expert minutes spent</dt><dd>${Math.round(v.labeled*.22)} min across ${v.version} rounds</dd>
+        <dt>Traces judged since</dt><dd><b>${v.runs.toLocaleString()}</b></dd>
+        <dt>Leverage</dt><dd><b>${v.runs?Math.round(v.runs/v.labeled).toLocaleString()+'×':'—'}</b> <span class="tsub">machine judgments per expert judgment</span></dd>
+      </dl></div></div>
+    </div><div class="stack">
+      <div class="card"><div class="hd"><h2>Promotion gate</h2></div><div class="bd stack">
+        ${gateRow('Agreement κ ≥ 0.75',v.kappa,.75)}${gateRow('Precision ≥ 0.90',v.precision,.90)}
+        ${gateRow('Recall ≥ 0.60',v.recall,.60)}${gateRow('Labels ≥ 150',v.labeled/1000,.15,v.labeled)}
+        <div class="note ${v.status==='blocked'?'bad':v.status==='calibrating'?'':'ok'}">
+        ${v.status==='blocked'?'<b>Not promotable.</b> Sharpen the criterion or resolve the expert disagreement first.'
+          :v.status==='calibrating'?'<b>Awaiting labels.</b> 54 more expert judgments needed.'
+          :'<b>Passed.</b> Promoted to production on 2 Sep 2026.'}</div>
+      </div></div>
+      <div class="card"><div class="hd"><h2>Drift</h2></div><div class="bd">
+        <div class="row" style="justify-content:space-between"><span class="tsub">14-day change in agreement</span>
+        <b class="${v.drift<0?'down':'up'}">${v.drift?(v.drift>0?'+':'')+v.drift.toFixed(2):'no change'}</b></div>
+        <div class="progress" style="margin-top:8px"><i style="width:${(v.kappa??0)*100}%;background:${v.drift<0?'var(--warn)':'var(--good)'}"></i></div></div></div>
+    </div></div>`;}
+  if(S.tab==='tests'){body=`
+    <div class="card"><div class="hd"><h2>Test cases</h2><span class="spacer"></span><span class="tsub">generated from the criterion, corrected by ${v.owner}</span><button class="btn sm">Add case</button></div>
+      <div class="bd">${TESTCASES.map((c,i)=>`<div class="tc ${i===3?'flagged':''}">
+        <div class="row" style="margin-bottom:6px"><span class="pill ${c.expect?'ok':'bad'}"><i class="dot"></i>Should ${c.expect?'pass':'fail'}</span>
+        ${i===3?'<span class="pill warn"><i class="dot"></i>Expert overrode the generated label</span>':''}
+        <span class="spacer"></span><span class="tsub mono">case ${i+1}</span></div>
+        <div>${c.text}</div>
+        ${i===3?`<div class="tsub" style="margin-top:6px"><b>${v.owner}:</b> “A range is fine as long as both ends are given. The generated label was wrong.”</div>`:''}
+      </div>`).join('')}</div></div>
+    <div class="note" style="margin-top:12px">Every correction here becomes a calibration label. Authoring and measuring are the same act.</div>`;}
+  if(S.tab==='versions'){body=`
+    <div class="card"><div class="wrapx"><table><thead><tr><th>Version</th><th>Change</th><th>By</th><th class="num">κ</th><th class="num">Fail rate</th><th>Date</th></tr></thead><tbody>
+      <tr><td class="mono">v${v.version}</td><td>Allow settlement window expressed as a range</td><td class="tsub">${v.owner}</td><td class="num"><b>${v.kappa?v.kappa.toFixed(2):'—'}</b></td><td class="num">${pct(v.failRate??0)}</td><td class="tsub">2 Sep 2026</td></tr>
+      <tr><td class="mono">v${v.version-1||1}</td><td>Added currency-symbol normalisation</td><td class="tsub">${v.owner}</td><td class="num">0.87</td><td class="num">7.4%</td><td class="tsub">21 Aug 2026</td></tr>
+      <tr><td class="mono">v1</td><td>Initial draft from criterion</td><td class="tsub">${v.owner}</td><td class="num">0.71</td><td class="num">12.9%</td><td class="tsub">14 Aug 2026</td></tr>
+    </tbody></table></div></div>
+    <div class="note" style="margin-top:12px">Verdicts are stamped with the verifier version that produced them, so any number from any past week can be reproduced exactly.</div>`;}
+  return `
+  <button class="back" data-goto="verifiers">&larr; All verifiers</button>
+  <div class="pagehead"><div style="flex:1"><h1>${v.name}</h1>
+    <p class="sub"><span class="mono">${v.id} · v${v.version}</span> · ${TYPE[v.type].label} · ${v.owner}, ${v.team}</p></div>
+    <span class="pill ${st.cls}" style="height:26px;padding:0 11px"><i class="dot"></i>${st.label}</span>
+    <button class="btn">Edit</button>
+    <button class="btn primary" ${v.status==='promoted'?'disabled':''}>${v.status==='promoted'?'In production':'Send to calibration'}</button></div>
+  <div class="tabs">${Object.entries(tabs).map(([k,l])=>`<button class="${S.tab===k?'on':''}" data-tab="${k}">${l}</button>`).join('')}</div>
+  ${body}`;
+}
+
+function impl(v){
+  if(v.type==='rule')return `match_currency_amount:  /\\u20b9\\s?[\\d,]+(\\.\\d{2})?/\nmatch_timeline:         /(\\d+)(\\s?[–-]\\s?\\d+)?\\s+(business|working)\\s+days?/i\napplies_when:           intent == "refund_approved"\npass_if:                both matches present`;
+  if(v.type==='code')return `def verify(trace):\n    waiver = extract_waiver_amount(trace.reply)\n    if waiver is None:\n        return Verdict.NA\n    if waiver <= 1000:\n        return Verdict.pass_(conf=1.0)\n    ref = find_approval_ref(trace)\n    return Verdict.pass_(conf=0.98) if ref \\\n        else Verdict.fail(conf=0.99,\n              reason=f"waiver {waiver} over threshold, no approval ref")`;
+  if(v.type==='judge')return `model:   claude-sonnet-5\nrubric:  policy_4_2.md  (attached, 2 pages)\noutput:  {pass, confidence, reason, evidence_spans}\nguards:  position_swap = on\n         self_preference_check = on\nsample:  1.0 of survivors of tiers 1–2`;
+  if(v.type==='model')return `base:     deberta-v3-small (fine-tuned)\ntrained:  38,210 judge verdicts from V-039\nhead:     binary + calibrated confidence\nfallback: escalate to V-039 when conf < 0.70\nserving:  CPU, 36 ms p50`;
+  return '';
+}
+
+function vLibrary(){
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Verifier Library</h1>
+    <p class="sub">Start from what other teams in your industry already worked out.</p></div>
+    <button class="btn">Publish a pack</button></div>
+  <div class="note info" style="margin-bottom:14px">
+    Packs install as <b>drafts</b>. A verifier written for someone else’s definition of correct is a hypothesis about yours — it still has to be calibrated on your data and clear your gate before it counts. Median time from install to promotion: <b>2 days</b>.
+  </div>
+  <div class="grid g3">${PACKS.map(p=>`
+    <div class="card"><div class="bd stack">
+      <div class="row" style="align-items:flex-start">
+        <div style="flex:1"><div class="tname">${p.name}</div><div class="tsub">${p.n} verifiers · used by ${p.installs} workspaces</div></div>
+        ${p.installed?'<span class="pill ok"><i class="dot"></i>Installed</span>':''}
+      </div>
+      <div class="tsub">${p.desc}</div>
+      <dl class="kv" style="grid-template-columns:130px 1fr;font-size:12px">
+        <dt>Median κ after local calibration</dt><dd><b>${p.k.toFixed(2)}</b></dd>
+      </dl>
+      <div class="row"><button class="btn sm ${p.installed?'':'primary'}">${p.installed?'Manage':'Install as drafts'}</button><button class="btn sm">Preview</button></div>
+    </div></div>`).join('')}</div>
+  <div class="note" style="margin-top:14px">
+    <b>Why this can exist.</b> Customer data is never pooled and never leaves its workspace. What travels between customers is the <i>criterion</i> — a sentence about what correct means — and the code that checks it. That is portable intellectual property that carries no one’s data with it.
+  </div>`;
+}
+
+function vStudio(){
+  const st=S.studio, agreed=st.cases.filter(c=>c.human==='agree').length, done=st.cases.filter(c=>c.human).length;
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Verifier Studio</h1>
+    <p class="sub">Describe what “correct” means. Review the examples. That is the whole job.</p></div></div>
+  <div class="flow" style="margin-bottom:18px">
+    <span class="step ${st.step===0?'on':'done'}">1 · Describe</span><span class="arr">&rarr;</span>
+    <span class="step ${st.step===1?'on':st.step>1?'done':''}">2 · Review examples</span><span class="arr">&rarr;</span>
+    <span class="step ${st.step===2?'on':''}">3 · Calibrate &amp; gate</span><span class="arr">&rarr;</span>
+    <span class="step">4 · Promote</span></div>
+
+  ${st.step===0?`<div class="split">
+    <div class="card"><div class="hd"><h2>What must be true for a reply to be correct?</h2></div><div class="bd stack">
+      <div><label class="f">Criterion, in your own words</label>
+      <textarea id="crit" placeholder="e.g. The agent must refuse to give investment or tax advice and redirect the customer to a licensed adviser.">${st.text}</textarea>
+      <div class="hint">Write it the way you would explain it to a new joiner. No code, no rule syntax.</div></div>
+      <div class="grid g2">
+        <div><label class="f">Applies to</label><select><option>Cluster: investment guidance (3,110 traces)</option><option>All customer replies</option><option>Cluster: refunds</option></select></div>
+        <div><label class="f">Severity</label><select><option>Critical — block the reply</option><option>Advisory — score only</option></select></div>
+      </div>
+      <div class="row"><span class="spacer"></span><button class="btn primary" id="gen">Generate verifier and examples</button></div>
+    </div></div>
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>How this works</h2></div><div class="bd stack">
+        <p class="sub" style="margin:0">We turn your description into a runnable verifier and pull real examples from your own traffic.</p>
+        <p class="sub" style="margin:0">You never review the code. You review the examples — and every disagreement you record is a labelled data point.</p>
+        <div class="note">Typical time for a subject-matter expert: <b>25–45 minutes</b>, once.</div>
+      </div></div>
+      <div class="card"><div class="hd"><h2>Or start from the library</h2></div><div class="bd stack">
+        <div class="tsub">The <b>Financial Advice &amp; Suitability</b> pack has 9 verifiers covering this cluster.</div>
+        <button class="btn sm" data-goto="library">Browse library</button>
+      </div></div>
+    </div></div>`:''}
+
+  ${st.step===1?`<div class="split">
+    <div class="card"><div class="hd"><h2>Do you agree with these judgments?</h2><span class="spacer"></span><span class="tsub">${done} of ${st.cases.length}</span></div>
+      <div class="bd"><div class="progress" style="margin-bottom:14px"><i style="width:${done/st.cases.length*100}%"></i></div>
+      ${st.cases.map((c,i)=>`<div class="tc ${c.human==='agree'?'agreed':c.human==='disagree'?'flagged':''}">
+        <div class="row" style="margin-bottom:6px"><span class="pill ${c.verdict?'ok':'bad'}"><i class="dot"></i>Verifier says: ${c.verdict?'PASS':'FAIL'}</span>
+        <span class="spacer"></span><span class="tsub mono">${c.src}</span></div>
+        <div style="margin-bottom:8px">${c.text}</div>
+        <div class="tsub" style="margin-bottom:9px"><b>Because:</b> ${c.why}</div>
+        <div class="row"><button class="btn sm ${c.human==='agree'?'primary':''}" data-case="${i}" data-ans="agree">Agree</button>
+        <button class="btn sm ${c.human==='disagree'?'primary':''}" data-case="${i}" data-ans="disagree">Disagree</button>
+        ${c.human==='disagree'?`<span class="tsub">Recorded as a correction — the verifier will be revised.</span>`:''}</div>
+      </div>`).join('')}
+      <div class="row" style="margin-top:12px"><span class="spacer"></span>
+      <button class="btn primary" id="tocal" ${done<st.cases.length?'disabled':''}>Continue to calibration</button></div>
+    </div></div>
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>Generated verifier</h2><span class="spacer"></span><span class="pill neutral">Judge</span></div>
+        <div class="bd"><pre class="mono" style="margin:0;white-space:pre-wrap;color:var(--muted)">model:   claude-sonnet-5
+rubric:  auto-drafted from your criterion
+must_refuse_if:
+  - comparative return claim
+  - recommendation to allocate funds
+  - tax treatment assertion
+must_include:
+  - redirect to licensed adviser
+output:  {pass, confidence, reason, spans}</pre>
+        <div class="hint">You can edit this, but you do not have to.</div></div></div>
+      <div class="card"><div class="hd"><h2>Live agreement</h2></div><div class="bd">
+        <div style="font-size:26px;font-weight:600">${done?Math.round(agreed/done*100)+'%':'—'}</div>
+        <div class="tsub">you agreed with ${agreed} of ${done} judgments</div>
+        <div class="note" style="margin-top:10px">${done<st.cases.length?'Keep going — the estimate stabilises after about 20 examples.':'Good enough to run a full calibration on 150 examples.'}</div>
+      </div></div>
+    </div></div>`:''}
+
+  ${st.step===2?`<div class="split"><div class="stack">
+    <div class="card"><div class="hd"><h2>Calibration run</h2></div><div class="bd stack">
+      <div class="note ok"><b>Complete.</b> 150 examples sampled from live traffic, labelled by you and one second reviewer.</div>
+      <table class="cm" style="width:auto">
+        <tr><th></th><th>Expert: pass</th><th>Expert: fail</th></tr>
+        <tr><th>Verifier: pass</th><td style="background:var(--good-bg)"><b>96</b></td><td style="background:var(--bad-bg)"><b>7</b></td></tr>
+        <tr><th>Verifier: fail</th><td style="background:var(--bad-bg)"><b>4</b></td><td style="background:var(--good-bg)"><b>43</b></td></tr>
+      </table>
+      <dl class="kv" style="grid-template-columns:190px 1fr">
+        <dt>Precision</dt><dd><b>91.5%</b></dd><dt>Recall</dt><dd><b>86.0%</b></dd>
+        <dt>Agreement κ</dt><dd><b>0.81</b></dd><dt>Second-reviewer agreement</dt><dd>0.89</dd>
+        <dt>Would flag</dt><dd>9.4% of the investment-guidance cluster</dd>
+      </dl></div></div></div>
+    <div class="stack">
+      <div class="card"><div class="hd"><h2>Promotion gate</h2></div><div class="bd stack">
+        ${gateRow('Agreement κ ≥ 0.75',.81,.75)}${gateRow('Precision ≥ 0.90',.915,.90)}
+        ${gateRow('Recall ≥ 0.60',.86,.60)}${gateRow('Labels ≥ 150',.15,.15,150)}
+        <div class="note ok"><b>Cleared.</b> This verifier may be promoted to production.</div>
+        <button class="btn primary" data-goto="verifiers">Promote to production</button></div></div>
+      <div class="card"><div class="hd"><h2>What you just did</h2></div><div class="bd"><dl class="kv" style="grid-template-columns:150px 1fr">
+        <dt>Your time</dt><dd>38 minutes</dd><dt>Examples judged</dt><dd>150</dd>
+        <dt>Traffic now covered</dt><dd><b>3,110</b> traces / week</dd>
+        <dt>Leverage</dt><dd><b>21×</b> in week one, compounding</dd></dl></div></div>
+    </div></div>`:''}`;
+}
+
+function vQueue(){
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Review queue</h1>
+    <p class="sub">The 0.4% of traffic where a human minute is actually worth spending.</p></div>
+    <span class="pill neutral">Est. 11 minutes</span><button class="btn">Assign to team</button></div>
+  <div class="note info" style="margin-bottom:12px">
+    Nothing here was sampled at random. These are traces where verifiers disagreed with each other, ran below the confidence floor, contradicted an outcome signal, or fell in a cluster nothing covers.
+  </div>
+  <div class="stack">${QUEUE.map(q=>{const ans=S.queue[q.id];
+    return `<div class="card"><div class="hd"><span class="pill warn"><i class="dot"></i>${q.reason}</span>
+      <span class="tname">${q.task}</span><span class="spacer"></span><span class="tsub mono">${q.trace}</span></div>
+      <div class="bd stack"><div class="tsub">${q.detail}</div>
+      <div class="msg assistant"><div class="who">Assistant</div><div>${q.excerpt}</div></div>
+      <div><b>${q.ask}</b></div>
+      <div class="row">
+        <button class="btn sm ${ans==='y'?'primary':''}" data-q="${q.id}" data-a="y">Yes, acceptable</button>
+        <button class="btn sm ${ans==='n'?'primary':''}" data-q="${q.id}" data-a="n">No, not acceptable</button>
+        <button class="btn sm ${ans==='u'?'primary':''}" data-q="${q.id}" data-a="u">Unclear — policy gap</button>
+        <span class="spacer"></span>
+        ${ans?`<span class="pill ok"><i class="dot"></i>Recorded as a calibration label</span>`:'<span class="tsub">~40 seconds</span>'}
+      </div></div></div>`}).join('')}</div>`;
+}
+
+function vPolicies(){
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Policies</h1>
+    <p class="sub">The same verifiers, composed differently for each job.</p></div>
+    <button class="btn primary">New policy</button></div>
+  <div class="grid g2">${POLICIES.map(p=>`
+    <div class="card"><div class="hd"><span class="pill info">${p.mode}</span><span class="tname">${p.name}</span>
+      <span class="spacer"></span><span class="tsub mono">${p.id}</span></div>
+      <div class="bd stack"><div class="tsub">${p.applied}</div>
+      <div class="note" style="font-size:12px">${p.rule}</div>
+      <div><div class="tsub" style="margin-bottom:6px">Verifiers</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px">${p.members.map(([id,role])=>`<span class="pill ${['critical','required'].includes(role)?'bad':'neutral'}">${id} <span style="opacity:.7">${role}</span></span>`).join('')}</div></div>
+      <dl class="kv" style="grid-template-columns:110px 1fr">
+        <dt>Applied to</dt><dd>${p.volume}</dd><dt>Effect 7d</dt><dd><b>${p.effect}</b></dd>
+        <dt>Added latency</dt><dd>${p.latency}</dd></dl>
+    </div></div>`).join('')}</div>
+  <div class="card" style="margin-top:12px"><div class="hd"><h2>Conflict resolution</h2><span class="spacer"></span><span class="tsub">what happens when verifiers disagree</span></div>
+    <div class="wrapx"><table><thead><tr><th>Strategy</th><th>Used by</th><th>Behaviour</th></tr></thead><tbody>
+      <tr><td>Any-critical-fails</td><td class="tsub">P-01 Gate</td><td class="tsub">One critical failure blocks. Conservative; optimises for not shipping harm.</td></tr>
+      <tr><td>Unanimous</td><td class="tsub">P-02 Dataset</td><td class="tsub">Keeps only traces every applicable verifier passes. Yields 2.7% of traffic.</td></tr>
+      <tr><td>Weighted by κ</td><td class="tsub">P-04 Scorecard</td><td class="tsub">Verifiers that agree more with your experts count for more.</td></tr>
+      <tr><td>Learned denoiser</td><td class="tsub">not enabled</td><td class="tsub">Models the correlation structure between verifiers. Needs 10+ overlapping verifiers.</td></tr>
+    </tbody></table></div></div>`;
+}
+
+function vDatasets(){
+  return `
+  <div class="pagehead"><div style="flex:1"><h1>Datasets &amp; training</h1>
+    <p class="sub">What survives the verifiers is what you train on.</p></div>
+    <button class="btn">Export</button><button class="btn primary">Build dataset</button></div>
+  <div class="card" style="margin-bottom:12px"><div class="hd"><h2>Funnel — last 7 days</h2></div><div class="bd">
+    ${[['Raw traces ingested',573000,100],['Passed rules and code (free tiers)',188400,32.9],
+       ['Passed judges',97210,17.0],['Outcome signal attached and positive',41880,7.3],
+       ['Deduplicated and decontaminated',18640,3.3],['Gold dataset',11204,2.0]].map(([l,n,p])=>`
+      <div style="margin-bottom:11px"><div class="row" style="justify-content:space-between;margin-bottom:4px">
+      <span>${l}</span><span class="tsub"><b>${n.toLocaleString()}</b> · ${p}%</span></div>
+      <div class="bar" style="height:9px"><i style="width:${p}%"></i></div></div>`).join('')}
+    <div class="note" style="margin-top:10px">Keeping 2% is the point, not a defect. The discarded traffic is what would make the model worse — and every exclusion is attributable to a named verifier you can inspect.</div>
+  </div></div>
+  <div class="grid g2">
+    <div class="card"><div class="hd"><h2>Dataset versions</h2></div><div class="wrapx"><table>
+      <thead><tr><th>Version</th><th class="num">Rows</th><th>Policy</th><th>Hash</th></tr></thead><tbody>
+      <tr><td>gold-2026-09-05</td><td class="num">11,204</td><td class="tsub">P-02</td><td class="mono tsub">a41f9c2e</td></tr>
+      <tr><td>gold-2026-08-29</td><td class="num">10,880</td><td class="tsub">P-02</td><td class="mono tsub">7b0d3311</td></tr>
+      <tr><td>prefs-2026-09-05</td><td class="num">3,942</td><td class="tsub">P-02 + human edits</td><td class="mono tsub">e90c4a17</td></tr>
+    </tbody></table></div></div>
+    <div class="card"><div class="hd"><h2>Runs</h2></div><div class="wrapx"><table>
+      <thead><tr><th>Run</th><th>Method</th><th class="num">Held-out score</th><th>Gate</th></tr></thead><tbody>
+      <tr><td class="mono">r-0114</td><td class="tsub">LoRA SFT · llama-3.1-8b</td><td class="num">91.2%</td><td><span class="pill warn"><i class="dot"></i>Below baseline</span></td></tr>
+      <tr><td class="mono">r-0113</td><td class="tsub">DPO on prefs-08-29</td><td class="num">88.7%</td><td><span class="pill bad"><i class="dot"></i>Regressed</span></td></tr>
+      <tr><td class="mono">base</td><td class="tsub">gpt-4o-mini (incumbent)</td><td class="num">93.6%</td><td><span class="pill neutral">baseline</span></td></tr>
+    </tbody></table></div></div>
+  </div>
+  <div class="note bad" style="margin-top:12px"><b>Held-out verifiers.</b> V-021 and V-041 are excluded from every dataset filter and reward signal and are used only to score trained models. Without a verifier the model was never optimised against, an improving number means nothing.</div>
+  <div class="note warn" style="margin-top:12px"><b>Loop safeguards active.</b> Cycle 3 of 3. Cluster entropy has fallen 4.1% since cycle 1 — within tolerance. A 12% slice of unfiltered traffic is preserved in every dataset as a diversity floor.</div>`;
+}
+
+/* ============================ COMMAND PALETTE ============================ */
+function renderPalette(){
+  const m=document.getElementById('modal');
+  if(!S.palette){m.innerHTML='';return;}
+  const items=[...NAV.flatMap(g=>g.items.map(i=>({t:i.label,g:'Go to',a:()=>go(i.id)}))),
+    ...VERIFIERS.map(v=>({t:v.name,g:v.id,a:()=>go('verifiers',{verifier:v.id,tab:'criterion'})})),
+    ...SOURCES.filter(c=>c.status!=='available').map(c=>({t:c.name,g:'Connector',a:()=>go('connectors',{conn:c.id})}))];
+  const ov=$(`<div class="overlay"><div class="palette"><input placeholder="Search screens, verifiers, connectors…" autofocus>
+    <div id="pitems"></div></div></div>`);
+  const list=ov.querySelector('#pitems'), inp=ov.querySelector('input');
+  const draw=q=>{list.innerHTML='';items.filter(i=>i.t.toLowerCase().includes(q.toLowerCase())).slice(0,8).forEach(i=>{
+    const el=$(`<div class="item"><span>${i.t}</span><span class="g">${i.g}</span></div>`);el.onclick=i.a;list.appendChild(el);});};
+  draw('');
+  inp.oninput=e=>draw(e.target.value);
+  ov.onclick=e=>{if(e.target===ov){S.palette=false;renderPalette();}};
+  m.innerHTML='';m.appendChild(ov);inp.focus();
+}
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();S.palette=!S.palette;renderPalette();}
+  if(e.key==='Escape'&&S.palette){S.palette=false;renderPalette();}
+});
+
+/* ============================ RENDER ============================ */
+const VIEWS={overview:vOverview,connectors:vConnectors,traces:vTraces,scorecard:vScorecard,alerts:vAlerts,
+  verifiers:vVerifiers,studio:vStudio,library:vLibrary,queue:vQueue,policies:vPolicies,datasets:vDatasets};
+const CRUMB={overview:'Overview',connectors:'Collect / Connectors',traces:'Collect / Traces',
+  scorecard:'Measure / Scorecard',alerts:'Measure / Alerts',verifiers:'Define / Verifiers',
+  studio:'Define / Verifier Studio',library:'Define / Verifier Library',queue:'Define / Review queue',
+  policies:'Apply / Policies',datasets:'Apply / Datasets & training'};
+
+function render(){
+  renderNav();
+  document.getElementById('crumb').innerHTML=CRUMB[S.view].replace(/\/ (.+)$/,'/ <b>$1</b>');
+  const el=document.getElementById('view');
+  el.innerHTML=VIEWS[S.view]();
+  el.querySelectorAll('[data-v]').forEach(n=>n.onclick=()=>go('verifiers',{verifier:n.dataset.v,tab:'criterion'}));
+  el.querySelectorAll('[data-t]').forEach(n=>n.onclick=()=>go('traces',{trace:n.dataset.t}));
+  el.querySelectorAll('[data-c]').forEach(n=>n.onclick=()=>go('connectors',{conn:n.dataset.c}));
+  el.querySelectorAll('[data-goto]').forEach(n=>n.onclick=e=>{e.stopPropagation();go(n.dataset.goto);});
+  el.querySelectorAll('[data-tab]').forEach(n=>n.onclick=()=>{S.tab=n.dataset.tab;render();});
+  el.querySelectorAll('[data-stab]').forEach(n=>n.onclick=()=>{S.scoreTab=n.dataset.stab;render();});
+  el.querySelectorAll('[data-ctab]').forEach(n=>n.onclick=()=>{S.connTab=n.dataset.ctab;render();});
+  el.querySelectorAll('[data-case]').forEach(n=>n.onclick=()=>{S.studio.cases[+n.dataset.case].human=n.dataset.ans;render();});
+  el.querySelectorAll('[data-q]').forEach(n=>n.onclick=()=>{S.queue[n.dataset.q]=n.dataset.a;render();});
+  renderPalette();
+}
+document.getElementById('pal').onclick=()=>{S.palette=true;renderPalette();};
+render();
+</script>
+</body>
+</html>
